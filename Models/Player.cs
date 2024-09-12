@@ -2,6 +2,7 @@
 {
     public class Player
     {
+        public string? ConnectionId { get; set; }
         public string? Name { get; set; }
         public string? RoomName { get; set; }
         public bool IsTheMole { get; set; }
