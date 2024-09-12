@@ -1,0 +1,6 @@
+@FindTheMole_HostAddress = http://localhost:5209
+
+GET {{FindTheMole_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
