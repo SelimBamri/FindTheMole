@@ -43,11 +43,18 @@ namespace FindTheMole.Hubs
 
         public async Task Reconnect(UserConnectionDto userConnection)
         {
-            Player p = _players.Where(x => x.Name.Equals(userConnection.Name)).FirstOrDefault();
+            Player p = _players.Where(x => x.Name.Equals(userConnection.Name) && x.RoomName.Equals(userConnection.RoomName)).FirstOrDefault();
             if (p != null)
             {
                 p.ConnectionId = Context.ConnectionId;
+                await Groups.AddToGroupAsync(p.ConnectionId, p.RoomName);
             }
+            var game = _games.Where(x => x.AccessCode!.Equals(userConnection.RoomName)).FirstOrDefault();
+            var players = _players.Select(x => x.RoomName == game.AccessCode);
+            int? remainingPlayers = game.NumberOfPlayers - players.Count();
+            var messages = _messages.Select(x => x.RoomName == game.AccessCode);
+            await Clients.Caller
+            .SendAsync("Refresh", remainingPlayers, messages, p.IsTheMole, game.Location);
         }
 
         public async Task JoinRoom(UserConnectionDto userConnection)
@@ -75,8 +82,12 @@ namespace FindTheMole.Hubs
                     };
                     _players.Add(p);
                     await Groups.AddToGroupAsync(p.ConnectionId, game.AccessCode!);
+                    if(game.NumberOfPlayers - countPlayers - 1 == 0)
+                    {
+                        GameStarted(userConnection);
+                    }
                     await Clients.Group(game.AccessCode!)
-                        .SendAsync("GameLobby", $"Waiting for more {game.NumberOfPlayers - countPlayers}");
+                        .SendAsync("GameLobby", game.NumberOfPlayers - countPlayers - 1);
                 }
                     
             }
