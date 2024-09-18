@@ -52,7 +52,10 @@ namespace FindTheMole.Hubs
             var game = _games.Where(x => x.AccessCode!.Equals(userConnection.RoomName)).FirstOrDefault();
             var players = _players.Where(x => x.RoomName == game!.AccessCode).Select(x => x.Name).ToList();
             int? remainingPlayers = game!.NumberOfPlayers - players.Count();
-            var messages = _messages.Select(x => x.RoomName == game.AccessCode);
+            var messages = _messages
+                .Where(x => x.RoomName.Equals(userConnection.RoomName))
+                .OrderBy(x => x.Time)
+                .Select(x => new { sender = x.Sender, content = x.Content });
             int? remainingVotes = game.NumberOfPlayers / 2;
             if (game.NumberOfPlayers % 2 == 1) remainingVotes++;
             remainingVotes -= game.NumberOfVotes;
@@ -134,6 +137,23 @@ namespace FindTheMole.Hubs
                     await Clients.Client(p.ConnectionId!).SendAsync("LoadInnocentPage", game.Location, playerss, remainingVotes);
                 }
             }
-        }   
+        }
+
+        public async Task SendMessage(UserConnectionDto userConnection, string content)
+        {
+            Message message = new Message() {
+                Sender = userConnection.Name,
+                RoomName = userConnection.RoomName,
+                Content = content,
+                Time = DateTime.Now,
+            };
+            _messages.Add(message);
+            var messages = _messages
+                .Where(x => x.RoomName.Equals(userConnection.RoomName))
+                .OrderBy(x => x.Time)
+                .Select(x => new {sender = x.Sender, content = x.Content});
+            await Clients.Group(userConnection.RoomName!)
+                        .SendAsync("NewMessage", messages);
+        }
     }
 }
