@@ -6,6 +6,7 @@
         public int? NumberOfPlayers { get; set; }
         public string? Location { get; set; }
         public int NumberOfVotes { get; set; }
+        public int NumberOfFinalVotes { get; set; }
         public bool HasStarted { get; set; }
         public bool HasFinished { get; set; }
     }

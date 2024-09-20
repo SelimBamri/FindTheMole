@@ -43,7 +43,7 @@ namespace FindTheMole.Hubs
 
         public async Task Reconnect(UserConnectionDto userConnection)
         {
-            Player p = _players.Where(x => x.Name.Equals(userConnection.Name) && x.RoomName.Equals(userConnection.RoomName)).FirstOrDefault();
+            Player? p = _players.Where(x => x.Name!.Equals(userConnection.Name) && x.RoomName!.Equals(userConnection.RoomName)).FirstOrDefault();
             if (p != null)
             {
                 p.ConnectionId = Context.ConnectionId;
@@ -53,14 +53,14 @@ namespace FindTheMole.Hubs
             var players = _players.Where(x => x.RoomName == game!.AccessCode).Select(x => x.Name).ToList();
             int? remainingPlayers = game!.NumberOfPlayers - players.Count();
             var messages = _messages
-                .Where(x => x.RoomName.Equals(userConnection.RoomName))
-                .OrderBy(x => x.Time)
+                .Where(x => x.RoomName!.Equals(userConnection.RoomName))
                 .Select(x => new { sender = x.Sender, content = x.Content });
             int? remainingVotes = game.NumberOfPlayers / 2;
             if (game.NumberOfPlayers % 2 == 1) remainingVotes++;
             remainingVotes -= game.NumberOfVotes;
+            int? remainingFinalVotes = game.NumberOfPlayers - game.NumberOfFinalVotes;
             await Clients.Caller
-            .SendAsync("Refresh", remainingPlayers, messages, p!.IsTheMole, game.Location, players, p.HasVoted, remainingVotes);
+            .SendAsync("Refresh", remainingPlayers, messages, p!.IsTheMole, game.Location, players, p.HasVoted, remainingVotes, remainingFinalVotes, p.VotedFor);
         }
 
         public async Task JoinRoom(UserConnectionDto userConnection)
@@ -103,22 +103,31 @@ namespace FindTheMole.Hubs
         {
             var game = _games.Where(x => x.AccessCode!.Equals(userConnection.RoomName)).FirstOrDefault();
             var player = _players.Where(x => x.Name!.Equals(userConnection?.Name!) && x.RoomName!.Equals(userConnection.RoomName)).FirstOrDefault();
-            if (!player.WantsToVote)
+            if (!player!.WantsToVote)
             {
                 player.WantsToVote = true;
-                game.NumberOfVotes++;
+                game!.NumberOfVotes++;
                 int? remainingVotes = game.NumberOfPlayers / 2;
                 if (game.NumberOfPlayers % 2 == 1) remainingVotes++;
                 remainingVotes -= game.NumberOfVotes;
-                await Clients.Group(game.AccessCode!)
+                if(remainingVotes <= 0)
+                {
+                    await Clients.Group(game.AccessCode!)
+                        .SendAsync("VotePage", game.NumberOfPlayers);
+                }
+                else
+                {
+                    await Clients.Group(game.AccessCode!)
                         .SendAsync("VoteRequest", remainingVotes);
+                }
+                
             }
         }
 
         public async Task GameStarted(UserConnectionDto userConnection)
         {
             var game = _games.Where(x => x.AccessCode!.Equals(userConnection.RoomName)).FirstOrDefault();
-            game.HasStarted = true;
+            game!.HasStarted = true;
             var players = _players.Where(x => x.RoomName == userConnection.RoomName).ToList();
             Random random = new Random();
             int mole = random.Next(0, players.Count);
@@ -149,11 +158,33 @@ namespace FindTheMole.Hubs
             };
             _messages.Add(message);
             var messages = _messages
-                .Where(x => x.RoomName.Equals(userConnection.RoomName))
-                .OrderBy(x => x.Time)
+                .Where(x => x.RoomName!.Equals(userConnection.RoomName))
                 .Select(x => new {sender = x.Sender, content = x.Content});
             await Clients.Group(userConnection.RoomName!)
                         .SendAsync("NewMessage", messages);
+        }
+
+        public async Task Vote(UserConnectionDto userConnection, string votedFor)
+        {
+            Game? game = _games.Where(x => x.AccessCode!.Equals(userConnection.RoomName)).FirstOrDefault();
+            Player? player = _players.Where(x => x.Name!.Equals(userConnection.Name) && x.RoomName!.Equals(userConnection.RoomName)).FirstOrDefault();
+            if (!player!.HasVoted)
+            {
+                player.HasVoted = true;
+                player.VotedFor = votedFor;
+                game!.NumberOfFinalVotes++;
+                Player? p = _players.Where(x => x.Name!.Equals(votedFor) && x.RoomName!.Equals(userConnection.RoomName)).FirstOrDefault();
+                p!.NumberOfVotes++;
+                if(game.NumberOfPlayers == game.NumberOfFinalVotes)
+                {
+                    await Clients.Group(userConnection.RoomName!)
+                        .SendAsync("GameOver");
+                }
+                await Clients.Group(userConnection.RoomName!)
+                        .SendAsync("NewVote", game.NumberOfPlayers-game.NumberOfFinalVotes);
+                await Clients.Client(player.ConnectionId!)
+                        .SendAsync("Voted", votedFor);
+            }
         }
     }
 }
