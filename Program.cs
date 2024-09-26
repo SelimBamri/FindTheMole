@@ -10,7 +10,7 @@ builder.Services.AddCors(opts =>
 {
     opts.AddPolicy("angularApp", pb =>
     {
-        pb.WithOrigins("http://localhost:4200");
+        pb.WithOrigins("https://selimbamri.github.io");
         pb.AllowAnyHeader();
         pb.AllowAnyMethod();
         pb.AllowCredentials();
