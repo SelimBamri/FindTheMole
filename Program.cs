@@ -19,9 +19,9 @@ builder.Services.AddCors(opts =>
 );
 builder.Services.AddSignalR();
 
-builder.Services.AddSingleton<ICollection<Message>>(new List<Message>());
-builder.Services.AddSingleton<ICollection<Game>>(new List<Game>());
-builder.Services.AddSingleton<ICollection<Player>>(new List<Player>());
+builder.Services.AddSingleton<ICollection<Message>>(new HashSet<Message>());
+builder.Services.AddSingleton<ICollection<Game>>(new HashSet<Game>());
+builder.Services.AddSingleton<ICollection<Player>>(new HashSet<Player>());
 builder.Services.AddSingleton<ICollection<string>>(new HashSet<string>
 {
     "Airplane", "Bank", "Beach", "Hospital", "School",
