@@ -166,11 +166,8 @@ namespace FindTheMole.Hubs
                 Time = DateTime.Now,
             };
             _messages.Add(message);
-            var messages = _messages
-                .Where(x => x.RoomName!.Equals(userConnection.RoomName))
-                .Select(x => new {sender = x.Sender, content = x.Content});
             await Clients.Group(userConnection.RoomName!)
-                        .SendAsync("NewMessage", messages);
+                        .SendAsync("NewMessage", message);
         }
 
         public async Task Vote(UserConnectionDto userConnection, string votedFor)
