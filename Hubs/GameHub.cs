@@ -167,7 +167,7 @@ namespace FindTheMole.Hubs
             };
             _messages.Add(message);
             await Clients.Group(userConnection.RoomName!)
-                        .SendAsync("NewMessage", message);
+                        .SendAsync("NewMessage", new { sender = message.Sender, content = message.Content });
         }
 
         public async Task Vote(UserConnectionDto userConnection, string votedFor)
